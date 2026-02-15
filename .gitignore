@@ -17,3 +17,5 @@ main.blg
 .idea
 .temp
 .cache
+data
+weights/
