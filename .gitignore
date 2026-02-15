@@ -19,3 +19,5 @@ main.blg
 .cache
 data
 weights/
+.env
+.gitignore
