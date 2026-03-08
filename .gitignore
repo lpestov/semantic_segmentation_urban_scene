@@ -21,3 +21,6 @@ data
 weights/
 .env
 .gitignore
+.vscode
+main.dvi
+.latexmkrc
