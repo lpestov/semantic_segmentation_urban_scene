@@ -85,6 +85,22 @@
 | `InternImage-Tiny` | `E0` | `0.3899` |
 | `DeepLabV3+` | `E0` | `0.3015` |
 
+## Примеры сегментации
+
+Ниже приведены сохранённые визуализации из train-ноутбуков `DINOv2-Small`. Во всех примерах колонки идут слева направо: `Image`, `GT`, `Prediction`.
+
+### `E3`: лучший source-only этап
+
+Источник: `notebooks/train/cityscapes/e3/DinoV2_E3_Cityscapes_FrequencyStyleAug.ipynb`
+
+![DINOv2 E3 segmentation examples](./dinov2_e3_segmentation_examples.png)
+
+### `U1`: self-training на pseudo-labels
+
+Источник: `notebooks/train/cityscapes_acdc/u1/DinoV2_U1_Cityscapes_ACDC_PseudoLabelSelfTraining.ipynb`
+
+![DINOv2 U1 segmentation examples](./dinov2_u1_segmentation_examples.png)
+
 ## Основные выводы
 
 - На baseline-этапе `DINOv2-Small` оказался сильнейшей моделью для кросс-доменной оценки на `ACDC`.
@@ -116,6 +132,4 @@
 
 ## Замечание по данным и весам
 
-Каталоги `data/` и `weights/` используются как локальные хранилища и в чистом виде в репозиторий не включаются. Для повторения экспериментов требуется самостоятельно разместить:
-- архивы `Cityscapes` и `ACDC`;
-- экспортированные чекпоинты в `weights/`.
+later...
