@@ -2,6 +2,8 @@
 
 Материалы курсовой работы по повышению устойчивости семантической сегментации дорожных сцен в сложных погодных условиях и при пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`, с отдельным блоком `UDA-lite`, где в обучение добавляются неразмеченные данные целевого домена.
 
+![Task](./assets/base.png)
+
 ## О проекте
 
 Цель работы: исследовать, как разные стратегии обучения влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к слабоконтрастным объектам.
@@ -93,13 +95,13 @@
 
 Источник: `notebooks/train/cityscapes/e3/DinoV2_E3_Cityscapes_FrequencyStyleAug.ipynb`
 
-![DINOv2 E3 segmentation examples](./dinov2_e3_segmentation_examples.png)
+![DINOv2 E3 segmentation examples](./assets/dinov2_e3_segmentation_examples.png)
 
 ### `U1`: self-training на pseudo-labels
 
 Источник: `notebooks/train/cityscapes_acdc/u1/DinoV2_U1_Cityscapes_ACDC_PseudoLabelSelfTraining.ipynb`
 
-![DINOv2 U1 segmentation examples](./dinov2_u1_segmentation_examples.png)
+![DINOv2 U1 segmentation examples](./assets/dinov2_u1_segmentation_examples.png)
 
 ## Основные выводы
 
