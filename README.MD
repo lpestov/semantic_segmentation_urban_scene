@@ -22,7 +22,7 @@
 
 ```text
 .
-├── data/                             # локальные данные, в репозитории не хранятся
+├── data/                             (dataset, link will be later...)
 ├── notebooks/
 │   ├── train/
 │   │   ├── cityscapes/
@@ -47,7 +47,7 @@
 │   ├── main.pdf                       # собранная версия курсовой
 │   ├── references.bib                 # библиография
 │   └── main.synctex.gz                # служебный файл синхронизации
-├── weights/                          # чекпоинты моделей, в репозитории не хранятся
+├── weights/                          # чекпоинты моделей ( later.. )
 └── README.MD
 ```
 
