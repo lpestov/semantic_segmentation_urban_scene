@@ -4,6 +4,8 @@
 
 ![Task](./assets/base.png)
 
+Текст курсовой работы и связанные `LaTeX`-файлы собраны в каталоге `paper/`.
+
 ## О проекте
 
 Цель работы: исследовать, как разные стратегии обучения влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к слабоконтрастным объектам.
@@ -40,10 +42,12 @@
 │       │   ├── u1/                   # оценка U1
 │       │   └── u2/                   # оценка U2
 │       └── ACDC_Eval_Metrics_Comparison.ipynb
+├── paper/
+│   ├── main.tex                       # основной LaTeX-исходник
+│   ├── main.pdf                       # собранная версия курсовой
+│   ├── references.bib                 # библиография
+│   └── main.synctex.gz                # служебный файл синхронизации
 ├── weights/                          # чекпоинты моделей, в репозитории не хранятся
-├── main.tex                          # основной текст курсовой
-├── main.pdf                          # собранная версия работы
-├── references.bib                    # библиография
 └── README.MD
 ```
 
@@ -116,7 +120,7 @@
 - `notebooks/eval/ACDC_Eval_Metrics_Comparison.ipynb` — сводная таблица всех метрик.
 - `notebooks/train/cityscapes/e3/` — лучший source-only этап.
 - `notebooks/train/cityscapes_acdc/u2/` — финальный лучший UDA-lite вариант.
-- `main.tex` / `main.pdf` — текст курсовой работы.
+- `paper/main.tex` / `paper/main.pdf` — текст курсовой работы и собранная версия.
 
 ## Источники и контекст
 
