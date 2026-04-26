@@ -25,6 +25,7 @@
 \usepackage[font={footnotesize,it}]{caption}
 \usepackage{tabularx}
 \usepackage{float}
+\usepackage{csquotes}
 \usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
 \addbibresource{references.bib}
 \usepackage{titlesec}
@@ -225,127 +226,548 @@ Foundation-подходы используют предварительное о
 
 \subsection{Domain Shift: DG, UDA, FDA --- термины и различия}
 
+При сегментации дорожных сцен качество модели на близких к обучающим данных и при переносе в другой визуальный домен расходится. Исходный домен в работе --- Cityscapes \cite{cordts2016cityscapes}: городские сцены при сравнительно благоприятной видимости. Целевой --- ACDC \cite{sakaridis2021acdc}: туман, ночь, дождь и снег. Доменный сдвиг формально записывается как
+\begin{equation}
+    P_s(X, Y) \neq P_t(X, Y),
+\end{equation}
+где $P_s$ и $P_t$ --- распределения исходного и целевого доменов, $X$ --- изображение, $Y$ --- карта меток. Для попиксельной задачи смещаются не только цвет и контраст, но и видимость границ, различимость мелких классов, частота ошибок на тонких структурах.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.92\textwidth]{domain_shift_scheme.pdf}
+    \caption{Различие между DG, UDA и FDA с точки зрения доступа к целевому домену и основной идеи метода.}
+    \label{fig:domain_shift_scheme}
+\end{figure}
+
 \subsubsection{DG (Domain Generalization): обучение без target-домена}
+
+\textbf{Domain Generalization (DG)} обучает модель на одном или нескольких исходных доменах без какого-либо доступа к target-данным. Цель --- не подстройка под конкретный набор, а признаки, которые слабо зависят от условий съемки. Такая постановка анализируется в обзоре \cite{zhou2022domain}.
+
+DG-интерпретация подходит экспериментам \textbf{E0--E4}: разметка только Cityscapes, ACDC участвует лишь как тест переноса. Weather-аугментации и частотные преобразования применяются к source-изображениям и не задействуют ACDC. Корректнее называть это \textbf{source-only} или DG-style режимом, а не адаптацией к ACDC.
 
 \subsubsection{UDA (Unsupervised Domain Adaptation): обучение с неразмеченным target}
 
+\textbf{Unsupervised Domain Adaptation (UDA)} в отличие от DG получает на этапе обучения неразмеченные изображения целевого домена. Разметка $Y_t$ недоступна, но $X_t$ хватает, чтобы оценивать target-статистику и подстраивать модель. Классическим инструментом было adversarial-выравнивание признаков \cite{ganin2016domain}; современные подходы для сегментации опираются на \textit{self-training}, \textit{pseudo-labels} и стабилизирующие приемы.
+
+Базовая схема pseudo-label self-training отбирает только уверенные пиксели:
+\begin{equation}
+    \hat{y}_{t}^{(i,j)} = \arg\max_k p_{t}^{(i,j,k)}, \qquad
+    \max_k p_{t}^{(i,j,k)} \geq \tau,
+\end{equation}
+где $\tau$ --- порог уверенности. Ручную разметку это не заменяет, зато позволяет учитывать структуру target-распределения. Дополнительные эксперименты \textbf{U1} и \textbf{U2} построены именно так: ACDC train подключается без ground truth, через pseudo-labels и online teacher.
+
 \subsubsection{FDA (Fourier Domain Adaptation): частотная техника адаптации}
 
-\subsubsection{Почему в данной работе основной протокол --- source-only / DG-style}
+\textbf{Fourier Domain Adaptation (FDA)} переносит стиль между доменами в частотной области. Низкочастотная часть амплитудного спектра отвечает за внешний вид сцены: освещение, цветовую температуру, контраст, погодный оттенок. Фаза фиксирует геометрию и положение объектов.
+
+Преобразование Фурье представимо в виде
+\begin{equation}
+    \mathcal{F}(x) = A_x \cdot e^{i\Phi_x},
+\end{equation}
+а FDA подменяет амплитуду source-изображения $A_s$ амплитудой target-изображения $A_t$ в низкочастотной области:
+\begin{equation}
+    \tilde{A}_s = (1 - M) \odot A_s + M \odot A_t,
+\end{equation}
+где $M$ --- маска выбранной полосы спектра. После обратного преобразования получается source-разметка с target-внешностью. Эксперимент \textbf{E3} использует не классический FDA с ACDC, а его source-only вариант: частотная модификация разнообразит стиль Cityscapes и не выводит работу за рамки DG-постановки.
+
+\subsubsection{Почему в данной работе основной сценарий --- source-only / DG-style}
+
+Основная экспериментальная линия E0--E4 устроена так, чтобы измерить перенос \textit{без} участия ACDC в обучении. Все модели видят разметку только Cityscapes, ACDC играет роль внешней проверки устойчивости к погоде и низкой видимости.
+
+\begin{table}[H]
+    \centering
+    \caption{Различие постановок, используемых в работе}
+    \label{tab:domain_shift_modes}
+    \begin{tabularx}{\textwidth}{p{2.6cm}X X}
+        \toprule
+        Постановка & Что доступно при обучении & Как используется в работе \\
+        \midrule
+        Source-only / DG-style & Размеченный Cityscapes; ACDC не используется & Основная линия E0--E4 и сравнение архитектур на ACDC validation \\
+        UDA-lite & Размеченный Cityscapes и неразмеченный ACDC train & Дополнительные эксперименты U1 и U2 для DINOv2-Small \\
+        FDA-style & Source-изображения с частотными преобразованиями стиля & Этап E3 как попытка повысить устойчивость без target-разметки \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Такой выбор отражает практическую ситуацию: размеченный датасет в благоприятных условиях обычно есть, а пиксельной разметки под каждый новый погодный сценарий --- нет. Сначала оценивается честный перенос Cityscapes $\rightarrow$ ACDC. \textbf{UDA-lite} рассматривается отдельно: он сильнее, но опирается на неразмеченные target-изображения, поэтому к source-only результатам его подмешивать нельзя.
 
 \subsection{Обзор литературы и SOTA-контекст}
 
 \subsubsection{Лидерборд \texorpdfstring{Cityscapes$\rightarrow$ACDC}{Cityscapes->ACDC}: что показывают UDA-методы}
 
+Публичный лидерборд HyperAI \textit{Domain Adaptation on Cityscapes to ACDC} фиксирует эту постановку как отдельный mIoU-бенчмарк \cite{hyperai_cityscapes_acdc}. Несколько характерных позиций сведены в таблицу \ref{tab:hyperai_cityscapes_acdc_examples}.
+
+\begin{table}[H]
+    \centering
+    \caption{Примеры результатов Cityscapes $\rightarrow$ ACDC по данным HyperAI}
+    \label{tab:hyperai_cityscapes_acdc_examples}
+    \begin{tabularx}{\textwidth}{p{4cm}p{2.4cm}X}
+        \toprule
+        Метод & mIoU, \% & Тип идеи \\
+        \midrule
+        SoRA & 78.8 & современная верхняя граница таблицы \\
+        Rein & 77.6 & foundation-модель / domain generalization \\
+        CoDA & 72.6 & chain-of-domain adaptation \\
+        MIC & 70.4 & masked consistency \\
+        HRDA & 68.0 & high-resolution UDA \\
+        DAFormer & 55.4 & transformer-based UDA \\
+        FDA (DeepLabV2) & 45.7 & частотная адаптация \\
+        \bottomrule
+    \end{tabularx}
+\end{table}
+
+Лидеры таблицы комбинируют сильный backbone, pseudo-labeling, teacher-student обучение, consistency-регуляризацию и работу с высоким разрешением. У всех у них в обучение поступают неразмеченные изображения ACDC. Основная линия данной работы намеренно строится без target-данных, чтобы отдельно измерить устойчивость моделей и source-only приемов.
+
 \subsubsection{Какие идеи можно перенести в DG-постановку}
+
+Из UDA-литературы переиспользуются не готовые пайплайны, а отдельные приемы, совместимые с отсутствием target-разметки. \textbf{E2} проверяет class-balanced веса и focal-компонент на трудных классах. \textbf{E3} использует частотные преобразования как FDA-style способ разнообразить стиль source-домена. \textbf{E4} применяет consistency-регуляризацию только в source. Pseudo-labeling вынесен в \textbf{U1--U2}: он уже требует неразмеченного ACDC и формально выводит эксперимент за пределы source-only постановки.
 
 \subsubsection{Ограничения сопоставления DG-результатов с UDA-рейтинговыми результатами}
 
-\section{Данные и экспериментальный протокол}
+Прямое сравнение с UDA-лидербордом некорректно не по силе моделей, а по уровню доступа к данным: лидерборд использует target-изображения в обучении, а E0--E4 --- только в оценке. Поэтому source-only этапы интерпретируются отдельно, а U1--U2 рассматриваются как UDA-lite расширение основной линии.
 
-\subsection{Описание датасетов}
+\section{Данные, постановка переноса и схема экспериментов}
 
-\subsubsection{Cityscapes: структура, классы, разметка}
+\subsection{Наборы данных и домены исследования}
 
-\subsubsection{ACDC: adverse-условия (fog/night/rain/snow), назначение в работе}
+\subsubsection{Cityscapes как исходный домен}
 
-\subsection{Протокол экспериментов}
+Исходный домен --- Cityscapes~\cite{cordts2016cityscapes}, базовый набор для сегментации городских сцен. Модель обучается на его размеченных кадрах в благоприятных условиях и проверяется на более сложном target-домене. Такая схема делает перенос достаточно строгим: source-domain покрывает только дневную съемку без осадков, а итоговая оценка ложится на изображения с другим освещением и погодой.
 
-\subsubsection{Обучение на Cityscapes}
+\subsubsection{ACDC как целевой домен: fog, night, rain, snow}
 
-\subsubsection{Оценка на ACDC (без обучения на ACDC в основной линии)}
+Целевой домен --- ACDC~\cite{sakaridis2021acdc}, четыре неблагоприятных условия: \textit{fog}, \textit{night}, \textit{rain}, \textit{snow}. Разбиение по условиям удобно тем, что итоговую ошибку можно разложить по типам сдвига, а не сводить к одному усредненному числу.
 
-\subsubsection{Риски и ограничения протокола}
+На рис.~\ref{fig:datasets_domain_examples} приведены примеры из обоих наборов. Видно, что разница не сводится к снижению яркости: меняются текстуры, насыщенность, видимость дальних объектов, надежность границ между классами.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{datasets_domain_examples.pdf}
+    \caption{Примеры визуального сдвига между Cityscapes и погодными условиями ACDC}
+    \label{fig:datasets_domain_examples}
+\end{figure}
+
+\subsubsection{Классы сегментации, разметка и подготовка данных}
+
+Оба набора приводятся к стандартной 19-классовой схеме Cityscapes. На вход идут RGB-изображения и маски в формате \textit{trainId}; void-области ($255$) исключены из функции потерь и из расчета IoU.
+
+Препроцессинг включает приведение к единому формату, согласованные геометрические преобразования изображения и маски и нормализацию под выбранную архитектуру. В основной линии E0--E4 ACDC выступает только тестовым доменом, его неразмеченные изображения подключаются исключительно в U1--U2.
 
 \subsection{Метрики и критерии сравнения}
 
-\subsubsection{Overall mIoU и per-condition mIoU}
+\subsubsection{Overall mIoU и Pixel Accuracy}
 
-\subsubsection{Class-wise IoU с акцентом на трудные/слабоконтрастные классы}
+Основной числовой критерий --- overall mIoU на ACDC validation. По нему сравниваются архитектуры в E0 и динамика этапов E1--E4, U1 и U2. Усреднение по классам сглаживает дисбаланс: дорога и небо занимают на порядок больше пикселей, чем светофор или знак, и мало диагностичны для качества переноса.
 
-\section{Реализация системы и базовый пайплайн}
+Усреднение ведется по $K = 19$ обучаемым классам:
+\begin{equation}
+    \text{mIoU}_{\text{overall}} =
+    \frac{1}{K}\sum_{k=1}^{K}\text{IoU}_k.
+\end{equation}
 
-\subsection{Технический стек и инфраструктура}
+Pixel Accuracy идет как вспомогательная метрика. Она показывает долю верно классифицированных пикселей и помогает увидеть грубую деградацию модели, но сама по себе обманчива: высокая PA может скрывать провал на малых и слабоконтрастных классах.
 
-\subsubsection{PyTorch / PyTorch Lightning / Albumentations}
+\begin{equation}
+    \text{PA} =
+    \frac{1}{|\Omega|}\sum_{(i,j)\in\Omega}
+    \mathbb{I}\left(\hat{y}_{i,j}=y_{i,j}\right),
+\end{equation}
+где $\Omega$ --- множество валидных пикселей без игнорируемой разметки.
 
-\subsubsection{Логирование экспериментов в ClearML}
+\subsubsection{Per-condition mIoU для fog, night, rain и snow}
 
-\subsection{Базовый пайплайн обучения и оценки}
+ACDC валидация разбита по четырем условиям, поэтому для каждой модели отдельно считается per-condition mIoU. Усреднение по всему ACDC скрывает, на каком сдвиге случился прирост: улучшение overall mIoU может опираться целиком на туман и снег при сохранении провала ночью.
 
-\subsubsection{Подготовка данных и аугментации baseline}
+Для условия $c \in \{\textit{fog}, \textit{night}, \textit{rain}, \textit{snow}\}$ метрика считается на соответствующем подмножестве $D_c$:
+\begin{equation}
+    \text{mIoU}_{c} =
+    \frac{1}{K}\sum_{k=1}^{K}\text{IoU}_k(D_c).
+\end{equation}
 
-\subsubsection{Конфигурации обучения и выбор checkpoint}
+\subsubsection{Class-wise IoU и качественные примеры}
 
-\subsubsection{Скрипт/ноутбук оценки на ACDC}
+Class-wise IoU выступает диагностической метрикой: позволяет увидеть, какие классы доминируют в ошибке. Крупные области обычно сегментируются стабильно, тонкие и редкие классы первыми проседают под доменным сдвигом, поэтому отдельно отслеживается группа слабоконтрастных и малых объектов.
 
-\subsection{Исследуемые модели}
+\begin{equation}
+    \text{IoU}_k =
+    \frac{TP_k}{TP_k + FP_k + FN_k}.
+\end{equation}
 
-\subsubsection{DINOv2-Small (fine-tuning)}
+Качественные примеры дополняют метрики, а не заменяют их. По визуализациям удобнее различать тип ошибки: пропуск объекта, смешение близких классов, разрыв тонких структур, потерю границ в тумане, ночью, под дождем и снегом.
+
+\section{Реализация экспериментального пайплайна}
+
+Все эксперименты оформлены как набор Jupyter-ноутбуков, разнесенных по назначению: обучение, генерация pseudo-labels, отдельная оценка на ACDC.
+
+\subsection{Технический стек и организация запусков}
+
+Основной стек: \textbf{PyTorch} для моделей и функций потерь, \textbf{PyTorch Lightning} для тренировочного цикла, \textbf{Albumentations} для синхронных преобразований изображения и маски, \textbf{TorchMetrics} для расчета IoU, \textbf{ClearML} для логирования гиперпараметров, графиков и ссылок на checkpoints.
+
+Пайплайн строится в три шага. Сначала модель обучается на Cityscapes в одном из сценариев E0--E4. Затем checkpoint подставляется в evaluation-ноутбук и оценивается на ACDC validation. Для UDA-lite добавляется промежуточный шаг: pseudo-labels для ACDC train либо предвычисляются в U1, либо генерируются онлайн внутри цикла обучения в U2.
+
+\subsubsection{Обучение, логирование и выбор checkpoint}
+
+Каждый train-ноутбук фиксирует конфигурацию запуска: архитектуру, размер входа, число классов, optimizer, learning rate, batch size, состав аугментаций, путь сохранения весов. В процессе логируются train/val loss, mIoU и служебные параметры. Логи нужны не для красоты графиков, а чтобы потом сравнивать E0--E4 без ручного восстановления деталей эксперимента.
+
+Checkpoint отбирается по validation mIoU на валидационной части обучающего сценария. После выбора веса не переоцениваются на глаз: модель загружается в отдельный evaluation-ноутбук, и все таблицы заполняются из единого контура оценки на ACDC.
+
+\subsubsection{Аугментации и подготовка батчей}
+
+Батч строится вокруг пары «RGB-изображение --- маска». Геометрические преобразования применяются синхронно, фотометрические --- только к изображению, чтобы не нарушать соответствие пикселей и классов. На выходе маска остается в \textit{trainId}, изображение нормализуется и переводится в тензор.
+
+Базовый набор --- стандартный resize/crop и нормализация. Этапы E1--E3 добавляют изменения контраста, яркости, погодного стиля и частотную модификацию амплитудного спектра. E4 устроен иначе: для одного source-примера формируются weak/strong-представления, между предсказаниями вводится consistency-регуляризация.
+
+\subsection{Архитектуры моделей}
+
+В работе сравниваются четыре линии разной сложности: классический CNN, современный convolutional backbone, transformer-based baseline и foundation-бэкбон. Они выступают ориентирами, а не равноправными финальными решениями.
+
+\subsubsection{DeepLabV3+ и InternImage-Tiny как базовые ориентиры}
+
+DeepLabV3+~\cite{chen2018deeplabv3plus} играет роль CNN-baseline. Он показывает, насколько проседает перенос Cityscapes $\rightarrow$ ACDC у классической сегментационной архитектуры без специальных механизмов устойчивости.
+
+InternImage-Tiny~\cite{wang2023internimage} --- более современный convolutional ориентир с DCNv3-блоками. Сравнение с ним помогает отделить вклад выразительных признаков от вклада конкретных DG/UDA-приемов.
 
 \subsubsection{SegFormer-B2}
 
-\subsubsection{Роль дополнительных baseline-моделей (DeepLabV3+, InternImage) как контекст}
+SegFormer-B2~\cite{xie2021segformer} --- основной transformer-based baseline. Он проходит те же этапы E0--E4, что и DINOv2-Small, поэтому удобно проверять, переносятся ли эффекты аугментаций, class-balanced loss и frequency-style преобразования между типами архитектур.
 
-\section{Базовые результаты и их анализ}
+Если DINOv2 выигрывает только за счет foundation-признаков, SegFormer-B2 фиксирует уровень, доступный стандартной сегментационной модели при тех же данных и схожем тренировочном цикле.
 
-\subsection{Результаты baseline на Cityscapes}
+\subsubsection{DINOv2-Small}
 
-\subsubsection{Сравнение моделей по валидационным метрикам}
+DINOv2-Small~\cite{oquab2023dinov2} --- основная модель исследования. В реализации backbone подгружается как предобученный, поверх него обучается легковесный декодер на 19 классов Cityscapes. Такая связка проверяет, насколько универсальные self-supervised признаки помогают переносу на ACDC без target-разметки.
 
-\subsection{Cross-domain результаты на ACDC}
+Полную серию запусков (E0--E4 и UDA-lite расширения U1--U2) получила именно эта модель. Причина прагматичная: уже в E0 DINOv2 оказался сильнейшей точкой старта, поэтому дорогие модификации пайплайна испытывались прежде всего на нем.
 
-\subsubsection{Overall и per-condition сравнение (fog/night/rain/snow)}
+\section{Результаты source-only экспериментов}
 
-\subsubsection{Качественный анализ ошибок и типовых провалов}
+\subsection{Сравнение архитектур в E0}
 
-\subsection{Выводы из baseline-этапа}
+\subsubsection{Общая таблица метрик на ACDC}
 
-\subsubsection{Почему в основную линию берутся DINOv2 и SegFormer-B2}
+\begin{table}[H]
+    \centering
+    \caption{Baseline E0: перенос Cityscapes $\rightarrow$ ACDC validation}
+    \label{tab:e0_architecture_comparison}
+    \small
+    \begin{tabular}{lrrrrrr}
+        \toprule
+        Модель & mIoU & PA & Fog & Night & Rain & Snow \\
+        \midrule
+        DeepLabV3+ & 0.3015 & 0.7204 & 0.4422 & 0.1363 & 0.3293 & 0.3215 \\
+        InternImage-Tiny & 0.3899 & 0.7735 & 0.5380 & 0.2137 & 0.4308 & 0.3997 \\
+        SegFormer-B2 & 0.4463 & 0.7685 & 0.5820 & 0.2461 & 0.4722 & 0.4553 \\
+        DINOv2-Small & \textbf{0.5436} & \textbf{0.8575} & \textbf{0.6882} & \textbf{0.3350} & \textbf{0.5263} & \textbf{0.5816} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-\subsubsection{Что baseline не решает в low-contrast сценариях}
+Разброс между архитектурами в E0 заметный. DeepLabV3+ и InternImage-Tiny задают нижний ориентир и проигрывают по каждому условию. SegFormer-B2 ощутимо сильнее классических baseline. Сильнейшая стартовая точка --- DINOv2-Small: overall mIoU выше SegFormer-B2 на $0.0973$, на ночи разрыв ещё заметнее ($0.3350$ против $0.2461$).
 
-\section{План методических улучшений}
+\subsubsection{Выбор моделей для основной серии}
 
-\subsection{Экспериментальная шкала E0--E4 (накопительный протокол)}
+Дальнейшие этапы E1--E4 проводятся для двух моделей --- DINOv2-Small и SegFormer-B2. DINOv2 идет как лучшая модель E0 и основной кандидат на финальное улучшение. SegFormer-B2 остается контрольной транформер-архитектурой: на нем проверяется, что эффекты E1--E4 не сводятся к особенностям foundation-бэкбона.
 
-\subsubsection{E0: baseline}
+\subsection{Динамика E0--E4 для DINOv2-Small}
 
-\subsubsection{E1: low-contrast/weather augmentations}
+\subsubsection{Overall и per-condition динамика}
 
-\subsubsection{E2: class-balanced/focal}
+\begin{table}[H]
+    \centering
+    \caption{DINOv2-Small: source-only этапы E0--E4 на ACDC validation}
+    \label{tab:dinov2_e0_e4_metrics}
+    \small
+    \begin{tabular}{lrrrrrr}
+        \toprule
+        Этап & mIoU & PA & Fog & Night & Rain & Snow \\
+        \midrule
+        E0 & 0.5436 & 0.8575 & 0.6882 & 0.3350 & 0.5263 & 0.5816 \\
+        E1 & 0.5620 & 0.8690 & 0.6940 & 0.3506 & 0.5540 & 0.5963 \\
+        E2 & 0.5609 & 0.8642 & 0.6810 & 0.3510 & 0.5507 & 0.5977 \\
+        E3 & \textbf{0.5711} & \textbf{0.8826} & \textbf{0.6977} & \textbf{0.3823} & 0.5542 & \textbf{0.6004} \\
+        E4 & 0.5622 & 0.8727 & 0.6879 & 0.3605 & \textbf{0.5635} & 0.5836 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-\subsubsection{E3: frequency randomization (FDA-style идея без target)}
+Лучший source-only этап для DINOv2-Small --- \textbf{E3}: overall mIoU вырастает с $0.5436$ до $0.5711$. Самый крупный прирост по поддомену приходится на \textit{night}: $0.3350 \to 0.3823$, $+0.047$. Именно ночные сцены страдают от низкого контраста и плохой видимости сильнее всего, поэтому такой профиль улучшения хорошо ложится на цели работы.
 
-\subsubsection{E4: consistency regularization (weak/strong) на source}
+\subsubsection{Лучший этап и откат на E4}
 
-\subsection{Две линии моделей в едином протоколе}
+E1 даёт устойчивый прирост над E0 за счёт фотометрических аугментаций. E2 почти не меняет overall mIoU: class-balanced loss с focal-весами помогает редким классам, но компенсирует это просадкой на крупных. E3 добавляет частотные преобразования и оказывается лучшим source-only вариантом. E4 откатывает mIoU до $0.5622$. Самая вероятная причина --- consistency-регуляризация только в source: предсказания становятся более согласованными между weak/strong-видами одной картинки, но это не приближает их к target-распределению.
 
-\subsubsection{DINOv2: ожидаемые эффекты и риски}
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.82\textwidth]{source_only_dynamics.pdf}
+    \caption{Динамика overall mIoU для DINOv2-Small и SegFormer-B2 в source-only экспериментах}
+    \label{fig:source_only_dynamics}
+\end{figure}
 
-\subsubsection{SegFormer-B2: ожидаемые эффекты и риски}
+\subsection{Динамика E0--E4 для SegFormer-B2}
 
-\subsection{Отдельный подпункт о UDA (опционально)}
+\subsubsection{Изменение метрик по этапам}
 
-\subsubsection{Что такое UDA и как возможно обучение на неразмеченном ACDC}
+\begin{table}[H]
+    \centering
+    \caption{SegFormer-B2: source-only этапы E0--E4 на ACDC validation}
+    \label{tab:segformer_e0_e4_metrics}
+    \small
+    \begin{tabular}{lrrrrrr}
+        \toprule
+        Этап & mIoU & PA & Fog & Night & Rain & Snow \\
+        \midrule
+        E0 & 0.4463 & 0.7685 & 0.5820 & 0.2461 & 0.4722 & 0.4553 \\
+        E1 & 0.5022 & 0.8273 & 0.6330 & 0.2740 & 0.5232 & \textbf{0.5272} \\
+        E2 & 0.5001 & 0.8249 & 0.6357 & 0.2881 & 0.5293 & 0.5158 \\
+        E3 & \textbf{0.5023} & \textbf{0.8396} & \textbf{0.6426} & \textbf{0.2899} & \textbf{0.5328} & 0.5148 \\
+        E4 & 0.4842 & 0.8277 & 0.6258 & 0.2761 & 0.4974 & 0.4859 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 
-\subsubsection{Почему UDA вынесен в дополнительный блок, а не в основной протокол}
+У SegFormer-B2 основной скачок приходится на E1: mIoU растёт с $0.4463$ до $0.5022$. E2 и E3 двигают результат на тысячные доли, E4 заметно проседает. Формально лучший этап здесь тоже E3, но преимущество над E1 в пределах шума одного запуска.
+
+\subsubsection{Сравнение с DINOv2-Small}
+
+DINOv2-Small устойчиво сильнее SegFormer-B2 на каждом этапе. Качественная картина изменений совпадает: E1 помогает обеим моделям, E3 даёт лучший source-only результат, E4 ухудшает overall mIoU. Расхождение --- в запасе на трудных условиях. На ночи DINOv2-Small E3 удерживает $0.3823$, SegFormer-B2 E3 --- $0.2899$.
+
+\subsection{Ошибки по условиям и классам}
+
+\subsubsection{Night как самый сложный поддомен}
+
+\textit{Night} остаётся самым тяжёлым поддоменом во всех сериях. Даже у лучшего source-only DINOv2-Small E3 ночной mIoU равен $0.3823$, тогда как fog и snow находятся в районе $0.70$ и $0.60$. Дело не только в погодных артефактах: слабое освещение разрушает границы объектов и стирает контраст между мелкими классами и фоном.
+
+\subsubsection{Class-wise IoU и визуальные примеры}
+
+\begin{table}[H]
+    \centering
+    \caption{Примеры class-wise IoU для трудных классов на лучших source-only этапах}
+    \label{tab:hard_class_iou_source_only}
+    \small
+    \begin{tabular}{lrr}
+        \toprule
+        Класс & DINOv2-Small E3 & SegFormer-B2 E3 \\
+        \midrule
+        traffic light & 0.5184 & \textbf{0.5639} \\
+        pole & 0.3888 & \textbf{0.4238} \\
+        fence & \textbf{0.3691} & 0.2870 \\
+        bicycle & \textbf{0.3314} & 0.2769 \\
+        rider & \textbf{0.1689} & 0.1579 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Низкие значения концентрируются на тонких и редких объектах. По отдельным классам преимущество не однозначно: SegFormer-B2 заметно лучше распознаёт \textit{traffic light} и \textit{pole}, но проигрывает на \textit{fence}, \textit{bicycle} и \textit{rider}. По всему ACDC и по большинству условий вперёд выходит DINOv2-Small E3.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.68\textwidth]{../assets/dinov2_e3_segmentation_examples.png}
+    \caption{Качественные примеры сегментации DINOv2-Small E3: изображение, ground truth и предсказание}
+    \label{fig:dinov2_e3_examples}
+\end{figure}
+
+На визуальных примерах виден типовой профиль ошибок: крупные области восстанавливаются уверенно, провалы концентрируются на границах, тонких структурах и мелких участниках движения. Качественный анализ работает в паре с mIoU и помогает интерпретировать его, а не заменяет.
+
+\section{UDA-lite эксперименты на DINOv2-Small}
+
+После source-only этапов отдельно проверяется более сильная постановка: в обучение добавляются \textbf{неразмеченные изображения ACDC train}. Эта серия не смешивается с E0--E4 в одной таблице --- условия задачи разные: модель получает target-изображения, пусть и без ручной разметки.
+
+\subsection{U1: self-training на pseudo-labels}
+
+\subsubsection{Построение pseudo-labels для ACDC}
+
+В U1 роль teacher играет лучшая source-only модель --- DINOv2-Small E3. Она проходит по ACDC train и для каждого пикселя сохраняет предсказанный класс только при уверенности $\max_k p^{(k)} \geq \tau$ с $\tau = 0.90$. Неуверенные пиксели маркируются ignore-меткой $255$ и выпадают из функции потерь. Обрабатывается 1600 изображений: по 400 на \textit{fog}, \textit{night}, \textit{rain}, \textit{snow}.
+
+\begin{table}[H]
+    \centering
+    \caption{Статистика pseudo-labels для ACDC train в U1}
+    \label{tab:u1_pseudo_label_stats}
+    \small
+    \begin{tabular}{lrrr}
+        \toprule
+        Условие & Изображений & Keep ratio & Confidence kept \\
+        \midrule
+        fog & 400 & 0.8297 & 0.9920 \\
+        night & 400 & 0.6543 & 0.9871 \\
+        rain & 400 & 0.8018 & 0.9906 \\
+        snow & 400 & 0.7933 & 0.9897 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+Keep ratio просаживается на \textit{night} ($0.6543$): ночные кадры хуже всего размечаются source-only моделью, поэтому teacher чаще отбрасывает неуверенные пиксели. На остальных условиях keep ratio держится в районе $0.80$, средняя уверенность сохранённых пикселей --- около $0.99$ (рис.~\ref{fig:pseudo_label_keep_ratio}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.78\textwidth]{pseudo_label_keep_ratio.pdf}
+    \caption{U1: доля сохранённых пикселей и средняя уверенность кадров ACDC train при $\tau=0.90$}
+    \label{fig:pseudo_label_keep_ratio}
+\end{figure}
+
+\subsubsection{Дообучение и результат U1}
+
+Дообучение идёт на смеси размеченного Cityscapes и ACDC train с pseudo-labels. Стартом служит checkpoint DINOv2-Small E3, то есть U1 не обучает модель с нуля, а аккуратно добавляет target-сигнал поверх лучшего source-only решения.
+
+На ACDC validation overall mIoU поднимается с $0.5711$ до $\mathbf{0.5828}$. Наибольший прирост приходится на \textit{rain}: $0.5542 \to 0.5898$ ($+0.036$). Простой confidence-фильтр без архитектурных изменений уже даёт измеримый эффект.
+
+\subsection{U2: EMA teacher и ClassMix}
+
+\subsubsection{EMA teacher для online pseudo-labeling}
+
+U2 заменяет фиксированный teacher на скользящее среднее. Веса EMA-teacher обновляются как $\theta_{t} = \alpha\,\theta_{t-1} + (1-\alpha)\,\theta_{\text{student}}$ с $\alpha = 0.999$. Pseudo-labels формируются прямо в обучающем цикле, а порог уверенности постепенно снижается с $0.968$ до $0.90$.
+
+Такой вариант меньше зависит от одного teacher-снимка. На ранних итерациях он строже отбирает target-пиксели, а к концу обучения допускает больше target-сигнала, когда student уже стабилизировался.
+
+\subsubsection{ClassMix и результат U2}
+
+К EMA-teacher добавляется ClassMix: на одной картинке смешиваются классовые регионы из source-кадра и target-кадра. Это расширяет распределение комбинаций объект--фон, на которых student видит лоссы. В реализации ClassMix включается с вероятностью $0.5$, обучение стартует от U1-checkpoint.
+
+Итоговый overall mIoU --- $\mathbf{0.5957}$. Это лучший результат среди всех экспериментов: $+0.0129$ к U1 и $+0.0246$ к лучшему source-only этапу E3.
+
+\subsection{Сравнение E3, U1 и U2}
+
+\subsubsection{Итоговые метрики}
+
+\begin{table}[H]
+    \centering
+    \caption{Сравнение лучшего source-only этапа и UDA-lite экспериментов}
+    \label{tab:e3_u1_u2_comparison}
+    \small
+    \begin{tabular}{lrrrrrr}
+        \toprule
+        Этап & mIoU & PA & Fog & Night & Rain & Snow \\
+        \midrule
+        E3 & 0.5711 & 0.8826 & 0.6977 & 0.3823 & 0.5542 & 0.6004 \\
+        U1 & 0.5828 & 0.8867 & 0.7001 & 0.3887 & 0.5898 & 0.5977 \\
+        U2 & \textbf{0.5957} & \textbf{0.8923} & \textbf{0.7055} & \textbf{0.3980} & \textbf{0.6058} & \textbf{0.6087} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{uda_lite_progression.pdf}
+    \caption{DINOv2-Small: переход E3 $\to$ U1 $\to$ U2 на ACDC validation. Слева --- overall mIoU, справа --- per-condition разбиение}
+    \label{fig:uda_lite_progression}
+\end{figure}
+
+Цепочка E3 $\to$ U1 $\to$ U2 даёт монотонный прирост (рис.~\ref{fig:uda_lite_progression}): каждое изменение пайплайна увеличивает overall mIoU, U2 удерживает первое место по всем четырём поддоменам.
+
+\subsubsection{Изменение качества по погодным условиям}
+
+Самый крупный прирост к E3 фиксируется на \textit{rain}: $+0.0516$ mIoU в U2. На \textit{night} улучшение меньше ($0.3823 \to 0.3980$), но устойчиво на обоих UDA-lite этапах. Полностью проблему ночных сцен U2 не закрывает: туман и снег по-прежнему держатся выше $0.60$, а ночной mIoU остаётся ниже $0.40$.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.68\textwidth]{../assets/dinov2_u1_segmentation_examples.png}
+    \caption{Качественные примеры сегментации DINOv2-Small U1: изображение, ground truth и предсказание}
+    \label{fig:dinov2_u1_examples}
+\end{figure}
+
+Для практической рекомендации это даёт две точки. При недоступном target-домене разумным остаётся E3. При наличии неразмеченного ACDC train --- U2.
+
+\section{Обсуждение результатов и ограничений}
+
+\subsection{Основные экспериментальные выводы}
+
+\subsubsection{Архитектура как главный фактор качества}
+
+Главный наблюдаемый фактор --- выбор архитектуры. В E0 DINOv2-Small даёт $0.5436$ mIoU, SegFormer-B2 --- $0.4463$, InternImage-Tiny --- $0.3899$, DeepLabV3+ --- $0.3015$. Разрыв между крайними точками превышает $0.24$ overall mIoU, что больше любого прироста от source-only модификаций. Слабый бэкбон одна только аугментация не компенсирует.
+
+\subsubsection{Эффект source-only модификаций}
+
+Source-only приёмы дают умеренный, но воспроизводимый эффект. Лучший этап E3 поднимает DINOv2-Small с $0.5436$ до $0.5711$ ($+0.028$) и SegFormer-B2 с $0.4463$ до $0.5023$ ($+0.056$). E4 не подтверждает пользу consistency-регуляризации в данной реализации: на обеих моделях overall mIoU после него падает по сравнению с E3.
+
+Практический ориентир: фотометрические аугментации и frequency-style преобразования --- недорогой способ повысить устойчивость переноса, но они не подменяют доступ к target-распределению.
+
+\subsubsection{Вклад UDA-lite}
+
+Самый сильный финальный результат даёт UDA-lite. U1 показывает, что offline pseudo-labeling уже улучшает DINOv2-Small E3 ($0.5711 \to 0.5828$). U2 с EMA-teacher и ClassMix добирает ещё $+0.013$ и выходит на $0.5957$ mIoU. Неразмеченные изображения ACDC несут информацию о target-распределении, которой source-only приёмы по построению не имеют.
+
+Сравнивать UDA-lite с E0--E4 в одной таблице нельзя: разная постановка задачи, разный уровень доступа к данным.
+
+\subsection{Ограничения исследования}
+
+\subsubsection{Один прогон и отсутствие оценки дисперсии}
+
+Каждая конфигурация запускалась один раз. Доверительных интервалов нет, поэтому различия порядка нескольких тысячных mIoU следует считать шумом обучения --- особенно для близких пар вроде SegFormer-B2 E1 и E3. Содержательно интерпретируются только устойчивые и крупные эффекты: преимущество DINOv2-Small, прирост на E3, переход к UDA-lite.
+
+\subsubsection{ACDC validation и границы сопоставимости}
+
+Все числа получены на ACDC validation. Внутреннее сравнение этапов это поддерживает, но публичные лидерборды используют закрытое test-разбиение и другие протоколы обучения, поэтому численного сравнения с ними результаты работы не подразумевают.
+
+UDA-lite реализован только для DINOv2-Small. Перенос U1 и U2 на SegFormer-B2 требует отдельной проверки.
+
+\subsection{Практические рекомендации}
+
+\subsubsection{Как использовать результаты экспериментов}
+
+Если target-домен недоступен на этапе обучения, разумный выбор --- DINOv2-Small E3. Он даёт лучший source-only результат и не использует ACDC. Когда неразмеченные изображения target-домена есть, предпочтительнее DINOv2-Small U2: он лидирует по overall mIoU и по каждому из четырёх условий.
+
+SegFormer-B2 E3 остаётся более лёгкой запасной точкой для случаев, где важна простота реализации, но по качеству переноса заметно уступает DINOv2-Small.
+
+\subsubsection{Что стоит проверить следующим шагом}
+
+Логические следующие шаги --- повторение ключевых запусков с несколькими seed, оценка на независимом test-разбиении и усиление работы с ночными сценами. \textit{Night} остаётся главным слабым местом: даже U2 поднимает его только до $0.3980$ mIoU.
+
+Полезно расширить UDA-lite на SegFormer-B2: это разведёт эффект метода и эффект foundation-признаков DINOv2.
 
 \section{Заключение}
 
-\subsection{Итоги по текущему этапу}
+В работе изучен перенос моделей семантической сегментации дорожных сцен из Cityscapes в ACDC --- из дневной городской съёмки в сцены с туманом, ночью, дождём и снегом. Цель ставилась не как погоня за лидербордом, а как прозрачное сравнение архитектур и приёмов обучения при ограниченном доступе к target-домену.
 
-\subsection{Что выполнено и что планируется завершить}
+Сильнейшей baseline-архитектурой оказалась DINOv2-Small. Уже в E0 она достигает $0.5436$ mIoU на ACDC validation, обгоняя SegFormer-B2, InternImage-Tiny и DeepLabV3+. Дальше эксперименты сосредоточились на DINOv2 и SegFormer-B2 как сильном контрольном baseline.
 
-\subsection{Практические рекомендации и дальнейшая работа}
+Из source-only модификаций лучшим оказался этап E3 с частотными преобразованиями: DINOv2-Small поднимается до $0.5711$ mIoU, SegFormer-B2 --- до $0.5023$. E4 устойчивого прироста не дал и на обеих моделях откатил overall mIoU ниже E3.
+
+Серия UDA-lite показала, что неразмеченные ACDC-изображения действительно несут полезный сигнал. Offline self-training на pseudo-labels (U1) поднимает DINOv2-Small E3 до $0.5828$ mIoU; EMA-teacher с ClassMix (U2) даёт лучший итоговый результат --- $\mathbf{0.5957}$ mIoU. На фоне SOTA-методов с лидерборда HyperAI это всё ещё ниже верхних позиций, но для учебной постановки результат фиксирует ожидаемое: foundation-признаки DINOv2 и аккуратное использование target-данных вместе работают лучше любого из этих компонентов по отдельности.
+
+\textit{Night} остаётся самым проблемным поддоменом во всех сериях. Даже U2 удерживает на нём $0.3980$ mIoU, тогда как fog, rain и snow находятся в районе $0.6$--$0.7$. Дальнейшее развитие работы естественно начать именно с ночных сцен: более сильных аугментаций освещения, отдельного анализа редких классов и повторных запусков с несколькими seed для оценки дисперсии.
 
 \section{Приложения}
 
-\subsection{Детальные таблицы метрик}
+\subsection{Сводные таблицы метрик и class-wise IoU}
 
-\subsection{Дополнительные визуализации предсказаний}
+В основной части приведены только таблицы, нужные для интерпретации результатов. Полная агрегация метрик собрана в ноутбуке \texttt{notebooks/eval/ACDC\_Eval\_Metrics\_Comparison.ipynb}, где доступны:
+\begin{itemize}
+    \item overall mIoU и Pixel Accuracy для E0--E4, U1 и U2;
+    \item per-condition mIoU для \textit{fog}, \textit{night}, \textit{rain}, \textit{snow};
+    \item приросты между соседними этапами;
+    \item class-wise IoU из отдельных evaluation-ноутбуков.
+\end{itemize}
 
-\subsection{Конфигурации экспериментов и параметры запусков}
+\begin{table}[H]
+    \centering
+    \caption{Краткая сводка ключевых итоговых результатов}
+    \label{tab:appendix_key_results}
+    \small
+    \begin{tabular}{lll}
+        \toprule
+        Сценарий & Лучшая модель / этап & Overall mIoU \\
+        \midrule
+        Baseline E0 & DINOv2-Small E0 & 0.5436 \\
+        Source-only & DINOv2-Small E3 & 0.5711 \\
+        UDA-lite offline & DINOv2-Small U1 & 0.5828 \\
+        UDA-lite online & DINOv2-Small U2 & \textbf{0.5957} \\
+        Лучший SegFormer & SegFormer-B2 E3 & 0.5023 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\subsection{Визуализации предсказаний и параметры запусков}
+
+Качественные примеры сегментации лежат в каталоге \texttt{assets/}. В тексте использованы \texttt{dinov2\_e3\_segmentation\_examples.png} и \texttt{dinov2\_u1\_segmentation\_examples.png}. Картинки нужны для контроля интерпретации метрик: где модель удерживает крупные области, где теряет тонкие объекты и границы.
+
+Параметры запусков зафиксированы внутри train- и eval-ноутбуков. Основные точки входа:
+\begin{itemize}
+    \item \texttt{notebooks/train/cityscapes/e3/} --- лучший source-only этап;
+    \item \texttt{notebooks/pseudo/acdc/u1/} --- генерация pseudo-labels для ACDC train;
+    \item \texttt{notebooks/train/cityscapes\_acdc/u1/} --- offline self-training;
+    \item \texttt{notebooks/train/cityscapes\_acdc/u2/} --- EMA teacher и ClassMix;
+    \item \texttt{notebooks/eval/acdc/} --- оценка на ACDC validation.
+\end{itemize}
+
+Для воспроизводимости вместе с checkpoint сохраняется и ноутбук запуска: в нём зафиксированы размер входа, batch size, learning rate, число эпох, состав аугментаций и путь к весам.
 
 \newpage
 \printbibliography[heading=bibintoc, title={Список использованной литературы}]
