@@ -1,28 +1,55 @@
 # Разработка системы семантической сегментации дорожной сцены
 
-Материалы курсовой работы по повышению устойчивости семантической сегментации дорожных сцен в сложных погодных условиях и при пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`, с отдельным блоком `UDA-lite`, где в обучение добавляются неразмеченные данные целевого домена.
+Репозиторий содержит материалы курсовой работы по повышению устойчивости семантической сегментации дорожных сцен при сложной погоде и пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`. Отдельно рассмотрен блок `UDA-lite`, где в обучение добавляются неразмеченные изображения целевого домена.
 
 ![Task](./assets/base.png)
 
-Текст курсовой работы и связанные `LaTeX`-файлы собраны в каталоге `paper/`.
+Текст курсовой работы и собранный PDF находятся в каталоге `paper/`.
 
 ## О проекте
 
-Цель работы: исследовать, как разные стратегии обучения влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к слабоконтрастным объектам.
+Цель работы — исследовать, как архитектура модели и изменения тренировочного процесса влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к малым и слабоконтрастным объектам.
 
 В работе рассматриваются:
-- базовые модели `DeepLabV3+`, `InternImage-Tiny`, `SegFormer-B2`, `DINOv2-Small`;
-- source-only / DG-подходы `E0-E4`;
+
+- baseline-модели `DeepLabV3+`, `InternImage-Tiny`, `SegFormer-B2`, `DINOv2-Small`;
+- source-only / DG-style этапы `E0-E4`, где `ACDC` используется только для оценки;
 - UDA-lite эксперименты `U1-U2` для `DINOv2-Small`;
 - единый контур оценки на `ACDC validation`.
 
-С точки зрения внешнего контекста задача соотносится с публичным benchmark `Cityscapes -> ACDC`, где доминируют полноценные `UDA`-методы. В репозитории же основной акцент сделан на воспроизводимом учебно-исследовательском пайплайне и на сравнении реалистичных улучшений внутри одного проекта. Benchmark: [HyperAI, Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc).
+Постановка соотносится с публичным benchmark `Cityscapes -> ACDC`, где доминируют полноценные `UDA`-методы. В этом репозитории основной акцент сделан на воспроизводимом учебно-исследовательском пайплайне и сравнении улучшений внутри одного проекта. Benchmark: [HyperAI, Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc).
+
+## Веса моделей
+
+Готовые checkpoints доступны в Google Drive: [папка с весами моделей](https://drive.google.com/drive/u/0/folders/1X7hL8EbQIGgF-_bSdJ14gbUeJsqB0-fi).
+
+В папке находятся веса для основных запусков:
+
+- `DeepLabV3+`, `InternImage-Tiny`, `SegFormer-B2`, `DINOv2-Small` для baseline-этапа `E0`;
+- `DINOv2-Small` и `SegFormer-B2` для source-only этапов `E1-E4`;
+- `DINOv2-Small` для UDA-lite этапов `U1-U2`;
+- дополнительные экспериментальные `U3` checkpoints, не входящие в основную линию курсовой.
+
+Веса не хранятся в git из-за размера файлов. Для локального запуска скачайте нужные `.ckpt` и положите их в каталог `weights/`. Каталог `weights/` добавлен в `.gitignore`.
+
+## Данные
+
+Датасеты также не включены в репозиторий. Ожидаемая локальная структура:
+
+```text
+data/
+├── cityscapes/
+└── acdc/
+```
+
+`Cityscapes` используется как исходный домен для обучения, `ACDC` — как целевой домен для оценки и для UDA-lite экспериментов. Каталог `data/` игнорируется git.
 
 ## Структура репозитория
 
 ```text
 .
-├── data/                             (dataset, link will be later...)
+├── assets/                           # изображения для README и курсовой
+├── data/                             # локальные датасеты, не коммитятся
 ├── notebooks/
 │   ├── train/
 │   │   ├── cityscapes/
@@ -37,38 +64,53 @@
 │   ├── pseudo/
 │   │   └── acdc/u1/                  # генерация pseudo-labels на ACDC train
 │   └── eval/
-│       ├── acdc/
-│       │   ├── e0-e4/                # оценка source-only экспериментов
-│       │   ├── u1/                   # оценка U1
-│       │   └── u2/                   # оценка U2
+│       ├── acdc/                     # оценка E0-E4, U1, U2
 │       └── ACDC_Eval_Metrics_Comparison.ipynb
 ├── paper/
-│   ├── main.tex                       # основной LaTeX-исходник
-│   ├── main.pdf                       # собранная версия курсовой
-│   ├── references.bib                 # библиография
-│   └── main.synctex.gz                # служебный файл синхронизации
-├── weights/                          # чекпоинты моделей ( later.. )
+│   ├── main.tex                      # основной LaTeX-исходник
+│   ├── main.pdf                      # собранная версия курсовой
+│   └── references.bib                # библиография
+├── scripts/
+│   └── build_uda_lite_figures.py     # построение вспомогательных графиков
+├── weights/                          # локальные checkpoints, не коммитятся
+├── LICENSE.MD
 └── README.MD
 ```
 
+## Быстрый старт
+
+Ноутбуки рассчитаны прежде всего на запуск в `Google Colab`; необходимые установки вынесены в первые ячейки соответствующих ноутбуков. Для локального окружения базовый набор зависимостей выглядит так:
+
+```bash
+pip install torch torchvision pytorch-lightning torchmetrics albumentations segmentation-models-pytorch clearml python-dotenv gdown opencv-python pandas matplotlib
+```
+
+Минимальный порядок воспроизведения:
+
+1. Подготовить `Cityscapes` и `ACDC` в каталоге `data/`.
+2. Скачать нужные checkpoints из [папки с весами](https://drive.google.com/drive/u/0/folders/1X7hL8EbQIGgF-_bSdJ14gbUeJsqB0-fi) в `weights/`.
+3. Открыть нужный train- или eval-ноутбук из `notebooks/`.
+4. Проверить пути к данным и checkpoint внутри ноутбука.
+5. Для сводного анализа открыть `notebooks/eval/ACDC_Eval_Metrics_Comparison.ipynb`.
+
 ## Логика экспериментов
 
-### Блок A. Source-only / DG-style
+### Source-only / DG-style
 
-- `E0`: базовое обучение на `Cityscapes` без специальных приёмов domain robustness.
-- `E1`: добавление аугментаций, имитирующих ухудшение контраста, освещения и погоды.
-- `E2`: усиление функции потерь через `class-balanced` веса и `focal`-компоненту.
-- `E3`: частотная аугментация в духе `FDA`, но без использования `ACDC` в обучении.
+- `E0`: базовое обучение на `Cityscapes` без специальных приемов domain robustness.
+- `E1`: аугментации, имитирующие ухудшение контраста, освещения и погоды.
+- `E2`: `class-balanced` веса и `focal`-компонента в функции потерь.
+- `E3`: частотная аугментация в духе `FDA`, без использования `ACDC` в обучении.
 - `E4`: consistency regularization на source-домене через weak/strong views.
 
-### Блок B. UDA-lite
+### UDA-lite
 
-- `U1`: генерация pseudo-labels на `ACDC train` лучшей source-only моделью и последующее дообучение на смеси `Cityscapes + ACDC pseudo-labels`.
-- `U2`: онлайн-обучение со схемой `EMA teacher + ClassMix`, где pseudo-labels генерируются внутри тренировочного цикла, а не заранее.
+- `U1`: генерация pseudo-labels на `ACDC train` лучшей source-only моделью и дообучение на смеси `Cityscapes + ACDC pseudo-labels`.
+- `U2`: онлайн-обучение со схемой `EMA teacher + ClassMix`, где pseudo-labels генерируются внутри тренировочного цикла.
 
 ## Ключевые результаты
 
-Ниже приведены основные результаты для линии `DINOv2-Small` на `ACDC validation`:
+Основные результаты для линии `DINOv2-Small` на `ACDC validation`:
 
 | Этап | Overall mIoU | Fog | Night | Rain | Snow |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -80,9 +122,9 @@
 | `U1` | `0.5828` | `0.7001` | `0.3887` | `0.5898` | `0.5977` |
 | `U2` | `0.5957` | `0.7055` | `0.3980` | `0.6058` | `0.6087` |
 
-Лучший итоговый результат в текущей публичной версии репозитория показывает `DINOv2-Small U2`.
+Лучший итоговый результат показывает `DINOv2-Small U2`.
 
-Для линии `SegFormer-B2` лучший результат на `ACDC validation` получен на этапе `E3`:
+Сводка по лучшим этапам:
 
 | Модель | Лучший этап | Overall mIoU |
 | --- | --- | ---: |
@@ -93,7 +135,7 @@
 
 ## Примеры сегментации
 
-Ниже приведены сохранённые визуализации из train-ноутбуков `DINOv2-Small`. Во всех примерах колонки идут слева направо: `Image`, `GT`, `Prediction`.
+Ниже приведены сохраненные визуализации из train-ноутбуков `DINOv2-Small`. Во всех примерах колонки идут слева направо: `Image`, `GT`, `Prediction`.
 
 ### `E3`: лучший source-only этап
 
@@ -107,27 +149,30 @@
 
 ![DINOv2 U1 segmentation examples](./assets/dinov2_u1_segmentation_examples.png)
 
+## Что смотреть в первую очередь
+
+- `paper/main.pdf` — собранная версия курсовой работы.
+- `paper/main.tex` — LaTeX-исходник курсовой.
+- `notebooks/eval/ACDC_Eval_Metrics_Comparison.ipynb` — сводная таблица всех метрик.
+- `notebooks/train/cityscapes/e3/` — лучший source-only этап.
+- `notebooks/train/cityscapes_acdc/u2/` — финальный UDA-lite вариант.
+
 ## Основные выводы
 
 - На baseline-этапе `DINOv2-Small` оказался сильнейшей моделью для кросс-доменной оценки на `ACDC`.
 - Среди source-only улучшений наиболее полезным оказался этап `E3` с частотной аугментацией.
-- Этап `E4` не дал устойчивого прироста и в финальную практическую линию не вошёл.
-- Переход к `UDA-lite` действительно дал дополнительный выигрыш: `U1` улучшил качество относительно `E3`, а `U2` стал лучшим итоговым запуском.
-- Самым сложным поддоменом на всём протяжении экспериментов остаётся `night`, что согласуется с формулировкой задачи про слабоконтрастные объекты.
-
-## Что рекомендуется смотреть в репозитории
-
-- `notebooks/eval/ACDC_Eval_Metrics_Comparison.ipynb` — сводная таблица всех метрик.
-- `notebooks/train/cityscapes/e3/` — лучший source-only этап.
-- `notebooks/train/cityscapes_acdc/u2/` — финальный лучший UDA-lite вариант.
-- `paper/main.tex` / `paper/main.pdf` — текст курсовой работы и собранная версия.
+- Этап `E4` не дал устойчивого прироста и в финальную практическую линию не вошел.
+- Переход к `UDA-lite` дал дополнительный выигрыш: `U1` улучшил качество относительно `E3`, а `U2` стал лучшим итоговым запуском.
+- Самым сложным поддоменом на протяжении экспериментов остается `night`.
 
 ## Источники и контекст
 
 Публичный benchmark:
+
 - [HyperAI: Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc)
 
 Ключевые работы, на которые опирается проект:
+
 - [ACDC: The Adverse Conditions Dataset with Correspondences for Robust Semantic Driving Scene Perception](https://arxiv.org/abs/2104.13395)
 - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
 - [SegFormer: Simple and Efficient Design for Semantic Segmentation with Transformers](https://proceedings.neurips.cc/paper_files/paper/2021/file/64f1f27bf1b4ec22924fd0acb550c235-Paper.pdf)
@@ -136,6 +181,6 @@
 - [FDA: Fourier Domain Adaptation for Semantic Segmentation](https://openaccess.thecvf.com/content_CVPR_2020/html/Yang_FDA_Fourier_Domain_Adaptation_for_Semantic_Segmentation_CVPR_2020_paper.html)
 - [DAFormer: Improving Network Architectures and Training Strategies for Domain-Adaptive Semantic Segmentation](http://openaccess.thecvf.com/content/CVPR2022/html/Hoyer_DAFormer_Improving_Network_Architectures_and_Training_Strategies_for_Domain-Adaptive_Semantic_CVPR_2022_paper.html)
 
-## Замечание по данным и весам
+## Лицензия
 
-later...
+Код и материалы репозитория распространяются по лицензии MIT. См. `LICENSE.MD`.

@@ -23,3 +23,5 @@ paper/main.synctex.gz
 paper/main.toc
 
 .latexmkrc
+.codex
+.cursor
