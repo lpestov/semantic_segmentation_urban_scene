@@ -2,7 +2,7 @@
 
 Работа по повышению устойчивости семантической сегментации дорожных сцен при сложной погоде и пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`. Отдельно рассмотрен блок `UDA-lite`, где в обучение добавляются неразмеченные изображения целевого домена.
 
-Task
+![Task](./assets/base.png)
 
 Текст курсовой работы находятся в `paper/`.
 
@@ -17,7 +17,7 @@ Task
 - UDA-lite эксперименты `U1-U2` для `DINOv2-Small`;
 - единый контур оценки на `ACDC validation`.
 
-Постановка соотносится с публичным benchmark `Cityscapes -> ACDC`, где доминируют полноценные `UDA`-методы. В этом репозитории основной акцент сделан на воспроизводимом учебно-исследовательском пайплайне и сравнении улучшений внутри одного проекта. Benchmark: [HyperAI, Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc).
+Работа сравнивалась с публичным benchmark `Cityscapes -> ACDC`, где доминируют полноценные `UDA`-методы. В этом репозитории основной акцент сделан на воспроизводимом учебно-исследовательском пайплайне и сравнении улучшений внутри одного проекта. Benchmark: [HyperAI, Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc).
 
 ## Веса моделей
 
@@ -128,13 +128,13 @@ data/
 
 Источник: `notebooks/train/cityscapes/e3/DinoV2_E3_Cityscapes_FrequencyStyleAug.ipynb`
 
-DINOv2 E3 segmentation examples
+![DINOv2 E3 segmentation examples](./assets/dinov2_e3_segmentation_examples.png)
 
 ### `U1`: self-training на pseudo-labels
 
 Источник: `notebooks/train/cityscapes_acdc/u1/DinoV2_U1_Cityscapes_ACDC_PseudoLabelSelfTraining.ipynb`
 
-DINOv2 U1 segmentation examples
+![DINOv2 U1 segmentation examples](./assets/dinov2_u1_segmentation_examples.png)
 
 ## Что смотреть в первую очередь
 
