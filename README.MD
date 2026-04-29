@@ -1,14 +1,14 @@
 # Разработка системы семантической сегментации дорожной сцены
 
-Репозиторий содержит материалы курсовой работы по повышению устойчивости семантической сегментации дорожных сцен при сложной погоде и пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`. Отдельно рассмотрен блок `UDA-lite`, где в обучение добавляются неразмеченные изображения целевого домена.
+Работа по повышению устойчивости семантической сегментации дорожных сцен при сложной погоде и пониженной видимости. Основной сценарий исследования: обучение на `Cityscapes` и оценка переноса на `ACDC`. Отдельно рассмотрен блок `UDA-lite`, где в обучение добавляются неразмеченные изображения целевого домена.
 
-![Task](./assets/base.png)
+Task
 
-Текст курсовой работы и собранный PDF находятся в каталоге `paper/`.
+Текст курсовой работы находятся в `paper/`.
 
 ## О проекте
 
-Цель работы — исследовать, как архитектура модели и изменения тренировочного процесса влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к малым и слабоконтрастным объектам.
+Исследовать, как архитектура модели и изменения тренировочного процесса влияют на качество сегментации в условиях `fog`, `night`, `rain`, `snow`, с отдельным вниманием к малым и слабоконтрастным объектам.
 
 В работе рассматриваются:
 
@@ -28,9 +28,9 @@
 - `DeepLabV3+`, `InternImage-Tiny`, `SegFormer-B2`, `DINOv2-Small` для baseline-этапа `E0`;
 - `DINOv2-Small` и `SegFormer-B2` для source-only этапов `E1-E4`;
 - `DINOv2-Small` для UDA-lite этапов `U1-U2`;
-- дополнительные экспериментальные `U3` checkpoints, не входящие в основную линию курсовой.
+- дополнительные экспериментальные `U3` checkpoints
 
-Веса не хранятся в git из-за размера файлов. Для локального запуска скачайте нужные `.ckpt` и положите их в каталог `weights/`. Каталог `weights/` добавлен в `.gitignore`.
+
 
 ## Данные
 
@@ -42,14 +42,14 @@ data/
 └── acdc/
 ```
 
-`Cityscapes` используется как исходный домен для обучения, `ACDC` — как целевой домен для оценки и для UDA-lite экспериментов. Каталог `data/` игнорируется git.
+`Cityscapes` используется как исходный домен для обучения, `ACDC` — как целевой домен для оценки и для UDA-lite экспериментов. 
 
 ## Структура репозитория
 
 ```text
 .
 ├── assets/                           # изображения для README и курсовой
-├── data/                             # локальные датасеты, не коммитятся
+├── data/                             # локальные датасеты
 ├── notebooks/
 │   ├── train/
 │   │   ├── cityscapes/
@@ -67,31 +67,14 @@ data/
 │       ├── acdc/                     # оценка E0-E4, U1, U2
 │       └── ACDC_Eval_Metrics_Comparison.ipynb
 ├── paper/
-│   ├── main.tex                      # основной LaTeX-исходник
-│   ├── main.pdf                      # собранная версия курсовой
+│   ├── main.tex                      
+│   ├── main.pdf                     
 │   └── references.bib                # библиография
-├── scripts/
-│   └── build_uda_lite_figures.py     # построение вспомогательных графиков
-├── weights/                          # локальные checkpoints, не коммитятся
+├── scripts/    
+├── weights/                         
 ├── LICENSE.MD
 └── README.MD
 ```
-
-## Быстрый старт
-
-Ноутбуки рассчитаны прежде всего на запуск в `Google Colab`; необходимые установки вынесены в первые ячейки соответствующих ноутбуков. Для локального окружения базовый набор зависимостей выглядит так:
-
-```bash
-pip install torch torchvision pytorch-lightning torchmetrics albumentations segmentation-models-pytorch clearml python-dotenv gdown opencv-python pandas matplotlib
-```
-
-Минимальный порядок воспроизведения:
-
-1. Подготовить `Cityscapes` и `ACDC` в каталоге `data/`.
-2. Скачать нужные checkpoints из [папки с весами](https://drive.google.com/drive/u/0/folders/1X7hL8EbQIGgF-_bSdJ14gbUeJsqB0-fi) в `weights/`.
-3. Открыть нужный train- или eval-ноутбук из `notebooks/`.
-4. Проверить пути к данным и checkpoint внутри ноутбука.
-5. Для сводного анализа открыть `notebooks/eval/ACDC_Eval_Metrics_Comparison.ipynb`.
 
 ## Логика экспериментов
 
@@ -112,26 +95,30 @@ pip install torch torchvision pytorch-lightning torchmetrics albumentations segm
 
 Основные результаты для линии `DINOv2-Small` на `ACDC validation`:
 
-| Этап | Overall mIoU | Fog | Night | Rain | Snow |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `E0` | `0.5436` | `0.6882` | `0.3350` | `0.5263` | `0.5816` |
-| `E1` | `0.5620` | `0.6940` | `0.3506` | `0.5540` | `0.5963` |
-| `E2` | `0.5609` | `0.6810` | `0.3510` | `0.5507` | `0.5977` |
-| `E3` | `0.5711` | `0.6977` | `0.3823` | `0.5542` | `0.6004` |
-| `E4` | `0.5622` | `0.6879` | `0.3605` | `0.5635` | `0.5836` |
-| `U1` | `0.5828` | `0.7001` | `0.3887` | `0.5898` | `0.5977` |
-| `U2` | `0.5957` | `0.7055` | `0.3980` | `0.6058` | `0.6087` |
+
+| Этап | Overall mIoU | Fog      | Night    | Rain     | Snow     |
+| ---- | ------------ | -------- | -------- | -------- | -------- |
+| `E0` | `0.5436`     | `0.6882` | `0.3350` | `0.5263` | `0.5816` |
+| `E1` | `0.5620`     | `0.6940` | `0.3506` | `0.5540` | `0.5963` |
+| `E2` | `0.5609`     | `0.6810` | `0.3510` | `0.5507` | `0.5977` |
+| `E3` | `0.5711`     | `0.6977` | `0.3823` | `0.5542` | `0.6004` |
+| `E4` | `0.5622`     | `0.6879` | `0.3605` | `0.5635` | `0.5836` |
+| `U1` | `0.5828`     | `0.7001` | `0.3887` | `0.5898` | `0.5977` |
+| `U2` | `0.5957`     | `0.7055` | `0.3980` | `0.6058` | `0.6087` |
+
 
 Лучший итоговый результат показывает `DINOv2-Small U2`.
 
 Сводка по лучшим этапам:
 
-| Модель | Лучший этап | Overall mIoU |
-| --- | --- | ---: |
-| `DINOv2-Small` | `U2` | `0.5957` |
-| `SegFormer-B2` | `E3` | `0.5023` |
-| `InternImage-Tiny` | `E0` | `0.3899` |
-| `DeepLabV3+` | `E0` | `0.3015` |
+
+| Модель             | Лучший этап | Overall mIoU |
+| ------------------ | ----------- | ------------ |
+| `DINOv2-Small`     | `U2`        | `0.5957`     |
+| `SegFormer-B2`     | `E3`        | `0.5023`     |
+| `InternImage-Tiny` | `E0`        | `0.3899`     |
+| `DeepLabV3+`       | `E0`        | `0.3015`     |
+
 
 ## Примеры сегментации
 
@@ -141,13 +128,13 @@ pip install torch torchvision pytorch-lightning torchmetrics albumentations segm
 
 Источник: `notebooks/train/cityscapes/e3/DinoV2_E3_Cityscapes_FrequencyStyleAug.ipynb`
 
-![DINOv2 E3 segmentation examples](./assets/dinov2_e3_segmentation_examples.png)
+DINOv2 E3 segmentation examples
 
 ### `U1`: self-training на pseudo-labels
 
 Источник: `notebooks/train/cityscapes_acdc/u1/DinoV2_U1_Cityscapes_ACDC_PseudoLabelSelfTraining.ipynb`
 
-![DINOv2 U1 segmentation examples](./assets/dinov2_u1_segmentation_examples.png)
+DINOv2 U1 segmentation examples
 
 ## Что смотреть в первую очередь
 
@@ -161,7 +148,7 @@ pip install torch torchvision pytorch-lightning torchmetrics albumentations segm
 
 - На baseline-этапе `DINOv2-Small` оказался сильнейшей моделью для кросс-доменной оценки на `ACDC`.
 - Среди source-only улучшений наиболее полезным оказался этап `E3` с частотной аугментацией.
-- Этап `E4` не дал устойчивого прироста и в финальную практическую линию не вошел.
+- Этап `E4` не дал устойчивого прироста
 - Переход к `UDA-lite` дал дополнительный выигрыш: `U1` улучшил качество относительно `E3`, а `U2` стал лучшим итоговым запуском.
 - Самым сложным поддоменом на протяжении экспериментов остается `night`.
 
@@ -171,7 +158,7 @@ pip install torch torchvision pytorch-lightning torchmetrics albumentations segm
 
 - [HyperAI: Domain Adaptation on Cityscapes to ACDC](https://hyper.ai/en/sota/tasks/domain-adaptation/benchmark/domain-adaptation-on-cityscapes-to-acdc)
 
-Ключевые работы, на которые опирается проект:
+Ключевые работы, на которые опирались:
 
 - [ACDC: The Adverse Conditions Dataset with Correspondences for Robust Semantic Driving Scene Perception](https://arxiv.org/abs/2104.13395)
 - [DINOv2: Learning Robust Visual Features without Supervision](https://arxiv.org/abs/2304.07193)
@@ -180,7 +167,3 @@ pip install torch torchvision pytorch-lightning torchmetrics albumentations segm
 - [InternImage: Exploring Large-Scale Vision Foundation Models with Deformable Convolutions](https://openaccess.thecvf.com/content/CVPR2023/papers/Wang_InternImage_Exploring_Large-Scale_Vision_Foundation_Models_With_Deformable_Convolutions_CVPR_2023_paper.pdf)
 - [FDA: Fourier Domain Adaptation for Semantic Segmentation](https://openaccess.thecvf.com/content_CVPR_2020/html/Yang_FDA_Fourier_Domain_Adaptation_for_Semantic_Segmentation_CVPR_2020_paper.html)
 - [DAFormer: Improving Network Architectures and Training Strategies for Domain-Adaptive Semantic Segmentation](http://openaccess.thecvf.com/content/CVPR2022/html/Hoyer_DAFormer_Improving_Network_Architectures_and_Training_Strategies_for_Domain-Adaptive_Semantic_CVPR_2022_paper.html)
-
-## Лицензия
-
-Код и материалы репозитория распространяются по лицензии MIT. См. `LICENSE.MD`.
